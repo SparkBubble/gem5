@@ -77,6 +77,42 @@ class SwitchAllocator : public Consumer
         return m_output_arbiter_activity;
     }
 
+    inline double
+    get_sa2_total_requests() const
+    {
+      return m_sa2_total_requests;
+    }
+
+    inline double
+    get_sa2_total_grants() const
+    {
+      return m_sa2_total_grants;
+    }
+
+    inline double
+    get_sa2_total_denials() const
+    {
+      return m_sa2_total_denials;
+    }
+
+    inline const std::vector<double>&
+    get_sa2_inport_requests() const
+    {
+      return m_sa2_inport_requests;
+    }
+
+    inline const std::vector<double>&
+    get_sa2_inport_grants() const
+    {
+      return m_sa2_inport_grants;
+    }
+
+    inline const std::vector<double>&
+    get_sa2_inport_denials() const
+    {
+      return m_sa2_inport_denials;
+    }
+
     void resetStats();
 
   private:
@@ -84,6 +120,14 @@ class SwitchAllocator : public Consumer
     int m_num_vcs, m_vc_per_vnet;
 
     double m_input_arbiter_activity, m_output_arbiter_activity;
+
+    // SA-II (arbitrate_outports) fairness-oriented counters.
+    double m_sa2_total_requests;
+    double m_sa2_total_grants;
+    double m_sa2_total_denials;
+    std::vector<double> m_sa2_inport_requests;
+    std::vector<double> m_sa2_inport_grants;
+    std::vector<double> m_sa2_inport_denials;
 
     Router *m_router;
     std::vector<int> m_round_robin_invc;

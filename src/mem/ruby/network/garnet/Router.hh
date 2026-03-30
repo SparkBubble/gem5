@@ -162,6 +162,14 @@ class Router : public BasicRouter, public Consumer
     statistics::Scalar m_sw_input_arbiter_activity;
     statistics::Scalar m_sw_output_arbiter_activity;
 
+    statistics::Scalar m_sa2_total_requests;
+    statistics::Scalar m_sa2_total_grants;
+    statistics::Scalar m_sa2_total_denials;
+    statistics::Formula m_sa2_grant_ratio;
+    statistics::Vector m_sa2_inport_requests;
+    statistics::Vector m_sa2_inport_grants;
+    statistics::Vector m_sa2_inport_denials;
+
     statistics::Scalar m_crossbar_activity;
 };
 

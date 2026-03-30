@@ -32,6 +32,7 @@
 
 #include "mem/ruby/network/garnet/Router.hh"
 
+#include "base/cprintf.hh"
 #include "debug/RubyNetwork.hh"
 #include "mem/ruby/network/garnet/CreditLink.hh"
 #include "mem/ruby/network/garnet/GarnetNetwork.hh"
@@ -216,6 +217,51 @@ Router::regStats()
         .name(name() + ".sw_output_arbiter_activity")
         .flags(statistics::nozero)
     ;
+
+    m_sa2_total_requests
+        .name(name() + ".sa2_total_requests")
+        .flags(statistics::nozero)
+    ;
+
+    m_sa2_total_grants
+        .name(name() + ".sa2_total_grants")
+        .flags(statistics::nozero)
+    ;
+
+    m_sa2_total_denials
+        .name(name() + ".sa2_total_denials")
+        .flags(statistics::nozero)
+    ;
+
+    m_sa2_grant_ratio
+        .name(name() + ".sa2_grant_ratio")
+        .flags(statistics::nozero)
+    ;
+    m_sa2_grant_ratio = m_sa2_total_grants / m_sa2_total_requests;
+
+    m_sa2_inport_requests
+        .init(m_input_unit.size())
+        .name(name() + ".sa2_inport_requests")
+        .flags(statistics::nozero)
+    ;
+
+    m_sa2_inport_grants
+        .init(m_input_unit.size())
+        .name(name() + ".sa2_inport_grants")
+        .flags(statistics::nozero)
+    ;
+
+    m_sa2_inport_denials
+        .init(m_input_unit.size())
+        .name(name() + ".sa2_inport_denials")
+        .flags(statistics::nozero)
+    ;
+
+    for (int i = 0; i < m_input_unit.size(); i++) {
+        m_sa2_inport_requests.subname(i, csprintf("%d", i));
+        m_sa2_inport_grants.subname(i, csprintf("%d", i));
+        m_sa2_inport_denials.subname(i, csprintf("%d", i));
+    }
 }
 
 void
@@ -231,6 +277,20 @@ Router::collateStats()
     m_sw_input_arbiter_activity = switchAllocator.get_input_arbiter_activity();
     m_sw_output_arbiter_activity =
         switchAllocator.get_output_arbiter_activity();
+
+    m_sa2_total_requests = switchAllocator.get_sa2_total_requests();
+    m_sa2_total_grants = switchAllocator.get_sa2_total_grants();
+    m_sa2_total_denials = switchAllocator.get_sa2_total_denials();
+
+    const auto &sa2_reqs = switchAllocator.get_sa2_inport_requests();
+    const auto &sa2_grants = switchAllocator.get_sa2_inport_grants();
+    const auto &sa2_denials = switchAllocator.get_sa2_inport_denials();
+    for (int i = 0; i < m_input_unit.size(); i++) {
+        m_sa2_inport_requests[i] = sa2_reqs[i];
+        m_sa2_inport_grants[i] = sa2_grants[i];
+        m_sa2_inport_denials[i] = sa2_denials[i];
+    }
+
     m_crossbar_activity = crossbarSwitch.get_crossbar_activity();
 }
 
