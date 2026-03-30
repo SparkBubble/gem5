@@ -452,46 +452,49 @@ def draw_plots(rows: List[Dict[str, Any]], outdir: Path, fmt: str) -> Optional[s
         return "no successful rows to plot"
 
     x = [r["injection_rate"] for r in rows_ok]
+    plot_dir = outdir / "sweep_curves"
+    plot_dir.mkdir(parents=True, exist_ok=True)
 
-    y_lat = [safe_num(r.get("averagePacketLatency")) for r in rows_ok]
-    y_thr = [safe_num(r.get("packetsReceivedPerSystemCycle")) for r in rows_ok]
-    y_sa2_grant_ratio = [safe_num(r.get("sa2GrantRatio")) for r in rows_ok]
-    y_sr_jain = [safe_num(r.get("sa2ServiceRatioJain")) for r in rows_ok]
-    y_sr_gini = [safe_num(r.get("sa2ServiceRatioGini")) for r in rows_ok]
-    y_sr_cv = [safe_num(r.get("sa2ServiceRatioCv")) for r in rows_ok]
+    non_metric_cols = {
+        "injection_rate",
+        "stage",
+        "status",
+        "outdir",
+        "run_seconds",
+        "error",
+    }
 
-    fig, axes = plt.subplots(4, 1, figsize=(9, 15), sharex=True)
+    metric_cols = [
+        c for c in rows_ok[0].keys()
+        if c not in non_metric_cols
+    ]
 
-    axes[0].plot(x, y_lat, marker="o", linewidth=1.5)
-    axes[0].set_ylabel("Avg Packet Latency")
-    axes[0].grid(True, alpha=0.3)
-    axes[0].set_title("Garnet Sweep: Latency vs Injection Rate")
+    plotted = 0
+    for col in metric_cols:
+        y = [safe_num(r.get(col)) for r in rows_ok]
+        if not any(v is not None for v in y):
+            continue
 
-    axes[1].plot(x, y_thr, marker="o", color="tab:green", linewidth=1.5)
-    axes[1].set_ylabel("Pkt Throughput\n(pkt/system_cycle)")
-    axes[1].grid(True, alpha=0.3)
-    axes[1].set_title("Throughput vs Injection Rate")
+        fig, ax = plt.subplots(figsize=(8, 4.5))
+        ax.plot(x, y, marker="o", linewidth=1.5)
+        ax.set_xlabel("Injection Rate")
+        ax.set_ylabel(col)
+        ax.set_title(f"{col} vs Injection Rate")
+        ax.grid(True, alpha=0.3)
 
-    axes[2].plot(x, y_sa2_grant_ratio, marker="o", color="tab:orange", linewidth=1.5)
-    axes[2].set_xlabel("Injection Rate")
-    axes[2].set_ylabel("Grant Ratio")
-    axes[2].set_ylim(0.0, 1.02)
-    axes[2].grid(True, alpha=0.3)
-    axes[2].set_title("SA-II Grant Ratio vs Injection Rate")
+        # Keep common ratio metrics readable in [0, 1] cases.
+        finite_vals = [v for v in y if v is not None]
+        if finite_vals and min(finite_vals) >= 0.0 and max(finite_vals) <= 1.0:
+            ax.set_ylim(0.0, 1.02)
 
-    axes[3].plot(x, y_sr_jain, marker="o", color="tab:purple", linewidth=1.5, label="ServiceRatio Jain")
-    axes[3].plot(x, y_sr_gini, marker="s", color="tab:brown", linewidth=1.2, label="ServiceRatio Gini")
-    axes[3].plot(x, y_sr_cv, marker="^", color="tab:blue", linewidth=1.0, label="ServiceRatio CV")
-    axes[3].set_xlabel("Injection Rate")
-    axes[3].set_ylabel("Fairness Metrics")
-    axes[3].grid(True, alpha=0.3)
-    axes[3].set_title("SA-II Service-Ratio Fairness")
-    axes[3].legend()
+        fig.tight_layout()
+        out_file = plot_dir / f"{col}.{fmt}"
+        fig.savefig(str(out_file), dpi=160)
+        plt.close(fig)
+        plotted += 1
 
-    fig.tight_layout()
-    out_file = outdir / f"sweep_curves.{fmt}"
-    fig.savefig(out_file, dpi=160)
-    plt.close(fig)
+    if plotted == 0:
+        return "no plottable numeric metrics found"
     return None
 
 
@@ -590,7 +593,7 @@ def main() -> None:
     print(f"- CSV:  {csv_path}")
     print(f"- MD:   {md_path}")
     print(f"- JSON: {json_path}")
-    print(f"- Plot: {workdir / ('sweep_curves.' + args.plot_format)}")
+    print(f"- Plot Dir: {workdir / 'sweep_curves'}")
 
     fail_text = summarize_failures(all_results)
     if fail_text:
