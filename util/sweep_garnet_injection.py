@@ -27,7 +27,12 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+
+try:
+    from tqdm.auto import tqdm as tqdm_auto
+except Exception:  # noqa: BLE001
+    tqdm_auto = None
 
 
 @dataclass
@@ -69,6 +74,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--workdir", default="m5out/sweep_adaptive")
     parser.add_argument("--force-rerun", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--no-tqdm",
+        action="store_true",
+        help="Disable tqdm-style progress output",
+    )
 
     parser.add_argument(
         "--plot-format",
@@ -169,6 +179,29 @@ def run_cmd(cmd: Sequence[str], cwd: Path) -> subprocess.CompletedProcess[str]:
 def load_json(path: Path) -> Dict[str, Any]:
     with path.open("r", encoding="utf-8") as f:
         return json.load(f)
+
+
+def should_use_tqdm(args: argparse.Namespace) -> bool:
+    return tqdm_auto is not None and not args.no_tqdm and sys.stderr.isatty()
+
+
+def progress_write(message: str, use_tqdm: bool) -> None:
+    if use_tqdm and tqdm_auto is not None:
+        tqdm_auto.write(message)
+        return
+    print(message)
+
+
+def progress_iter(iterable: Iterable[Any], desc: str, unit: str, use_tqdm: bool) -> Iterable[Any]:
+    if use_tqdm and tqdm_auto is not None:
+        return tqdm_auto(iterable, desc=desc, unit=unit, dynamic_ncols=True)
+    return iterable
+
+
+def progress_set_postfix(progress: Iterable[Any], message: str) -> None:
+    setter = getattr(progress, "set_postfix_str", None)
+    if callable(setter):
+        setter(message)
 
 
 def run_one_rate(
@@ -440,13 +473,19 @@ def write_markdown_table(rows: List[Dict[str, Any]], path: Path, top_n: int = 50
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def draw_plots(rows: List[Dict[str, Any]], outdir: Path, fmt: str) -> Optional[str]:
+def draw_plots(rows: List[Dict[str, Any]], outdir: Path, fmt: str, use_tqdm: bool) -> Optional[str]:
     try:
         import matplotlib.pyplot as plt
     except Exception:  # noqa: BLE001
         return "matplotlib not available; skipped plot generation"
 
-    rows_ok = [r for r in rows if r.get("status") in {"ok", "cached"}]
+    rows_ok = [
+        r
+        for r in rows
+        if r.get("status") in {"ok", "cached"}
+        and safe_num(r.get("injection_rate")) is not None
+        and safe_num(r.get("injection_rate")) > 0.0
+    ]
     rows_ok.sort(key=lambda r: r["injection_rate"])
     if not rows_ok:
         return "no successful rows to plot"
@@ -470,13 +509,16 @@ def draw_plots(rows: List[Dict[str, Any]], outdir: Path, fmt: str) -> Optional[s
     ]
 
     plotted = 0
-    for col in metric_cols:
+    plot_cols = progress_iter(metric_cols, desc="[4/4] Plot metrics", unit="metric", use_tqdm=use_tqdm)
+
+    for col in plot_cols:
+        progress_set_postfix(plot_cols, f"metric={col}")
         y = [safe_num(r.get(col)) for r in rows_ok]
         if not any(v is not None for v in y):
             continue
 
         fig, ax = plt.subplots(figsize=(8, 4.5))
-        ax.plot(x, y, marker="o", linewidth=1.5)
+        ax.plot(x, y, linewidth=1.5)
         ax.set_xlabel("Injection Rate")
         ax.set_ylabel(col)
         ax.set_title(f"{col} vs Injection Rate")
@@ -512,6 +554,10 @@ def summarize_failures(results: List[RunResult]) -> str:
 def main() -> None:
     args = parse_args()
     repo_root = Path.cwd()
+    use_tqdm = should_use_tqdm(args)
+
+    if tqdm_auto is None and not args.no_tqdm:
+        print("Note: tqdm not available; using plain text logs")
 
     workdir = Path(args.workdir)
     if not workdir.is_absolute():
@@ -522,11 +568,19 @@ def main() -> None:
 
     all_results: List[RunResult] = []
 
-    print(f"[1/4] Running coarse sweep on {len(coarse_rates)} points")
-    for rate in coarse_rates:
+    progress_write(f"[1/4] Running coarse sweep on {len(coarse_rates)} points", use_tqdm)
+    coarse_iter = progress_iter(coarse_rates, desc="[1/4] Coarse sweep", unit="rate", use_tqdm=use_tqdm)
+
+    for rate in coarse_iter:
         res = run_one_rate(args, repo_root, workdir, rate, stage="coarse")
         all_results.append(res)
-        print(f"  rate={rate:.4f} stage=coarse status={res.status} time={res.run_seconds:.2f}s")
+        line = f"rate={rate:.4f} stage=coarse status={res.status} time={res.run_seconds:.2f}s"
+        progress_set_postfix(coarse_iter, line)
+        if use_tqdm:
+            if res.status == "failed":
+                progress_write(f"  {line}", use_tqdm)
+        else:
+            print(f"  {line}")
 
     coarse_rows: List[Dict[str, Any]] = []
     for r in all_results:
@@ -553,13 +607,20 @@ def main() -> None:
     coarse_set = {round(r, 10) for r in coarse_rates}
     fine_rates = [r for r in fine_rates if round(r, 10) not in coarse_set]
 
-    print(f"[2/4] Steep intervals detected: {intervals if intervals else 'none'}")
-    print(f"      Fine points to run: {len(fine_rates)}")
+    progress_write(f"[2/4] Steep intervals detected: {intervals if intervals else 'none'}", use_tqdm)
+    progress_write(f"      Fine points to run: {len(fine_rates)}", use_tqdm)
 
-    for rate in fine_rates:
+    fine_iter = progress_iter(fine_rates, desc="[2/4] Fine sweep", unit="rate", use_tqdm=use_tqdm)
+    for rate in fine_iter:
         res = run_one_rate(args, repo_root, workdir, rate, stage="fine")
         all_results.append(res)
-        print(f"  rate={rate:.4f} stage=fine   status={res.status} time={res.run_seconds:.2f}s")
+        line = f"rate={rate:.4f} stage=fine   status={res.status} time={res.run_seconds:.2f}s"
+        progress_set_postfix(fine_iter, line)
+        if use_tqdm:
+            if res.status == "failed":
+                progress_write(f"  {line}", use_tqdm)
+        else:
+            print(f"  {line}")
 
     final_rows: List[Dict[str, Any]] = []
     for r in all_results:
@@ -581,26 +642,26 @@ def main() -> None:
     md_path = workdir / "sweep_summary.md"
     json_path = workdir / "sweep_results.json"
 
-    print("[3/4] Writing summary artifacts")
+    progress_write("[3/4] Writing summary artifacts", use_tqdm)
     write_csv(final_rows, csv_path)
     write_markdown_table(final_rows, md_path)
     json_path.write_text(json.dumps(final_rows, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
 
-    print("[4/4] Generating plots")
-    plot_err = draw_plots(final_rows, workdir, args.plot_format)
+    progress_write("[4/4] Generating plots", use_tqdm)
+    plot_err = draw_plots(final_rows, workdir, args.plot_format, use_tqdm=use_tqdm)
 
-    print("Done")
-    print(f"- CSV:  {csv_path}")
-    print(f"- MD:   {md_path}")
-    print(f"- JSON: {json_path}")
-    print(f"- Plot Dir: {workdir / 'sweep_curves'}")
+    progress_write("Done", use_tqdm)
+    progress_write(f"- CSV:  {csv_path}", use_tqdm)
+    progress_write(f"- MD:   {md_path}", use_tqdm)
+    progress_write(f"- JSON: {json_path}", use_tqdm)
+    progress_write(f"- Plot Dir: {workdir / 'sweep_curves'}", use_tqdm)
 
     fail_text = summarize_failures(all_results)
     if fail_text:
-        print(fail_text)
+        progress_write(fail_text, use_tqdm)
 
     if plot_err:
-        print(f"Plot note: {plot_err}")
+        progress_write(f"Plot note: {plot_err}", use_tqdm)
 
 
 if __name__ == "__main__":
