@@ -164,14 +164,17 @@ NetworkInterface::incrementStats(flit *t_flit)
     Tick src_queueing_delay = t_flit->get_src_delay();
     Tick dest_queueing_delay = (curTick() - t_flit->get_dequeue_time());
     Tick queueing_delay = src_queueing_delay + dest_queueing_delay;
+    Tick total_latency = network_delay + queueing_delay;
 
     m_net_ptr->increment_flit_network_latency(network_delay, vnet);
     m_net_ptr->increment_flit_queueing_latency(queueing_delay, vnet);
+    m_net_ptr->observe_flit_latency(total_latency);
 
     if (t_flit->get_type() == TAIL_ || t_flit->get_type() == HEAD_TAIL_) {
         m_net_ptr->increment_received_packets(vnet);
         m_net_ptr->increment_packet_network_latency(network_delay, vnet);
         m_net_ptr->increment_packet_queueing_latency(queueing_delay, vnet);
+        m_net_ptr->observe_packet_latency(total_latency);
     }
 
     // Hops

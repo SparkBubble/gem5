@@ -137,6 +137,12 @@ def flatten_metrics(metrics: Dict[str, Any]) -> Dict[str, Any]:
         "averageFlitLatency": latency.get("averageFlitLatency"),
         "averageHops": latency.get("averageHops"),
         "queueingShareOfPacketLatency": latency.get("queueingShareOfPacketLatency"),
+        "packetLatencyP95": latency.get("packetLatencyP95"),
+        "packetLatencyP99": latency.get("packetLatencyP99"),
+        "flitLatencyP95": latency.get("flitLatencyP95"),
+        "flitLatencyP99": latency.get("flitLatencyP99"),
+        "packetLatencySamples": latency.get("packetLatencySamples"),
+        "flitLatencySamples": latency.get("flitLatencySamples"),
         "packetsInjectedTotal": throughput.get("packetsInjectedTotal"),
         "packetsReceivedTotal": throughput.get("packetsReceivedTotal"),
         "flitsInjectedTotal": throughput.get("flitsInjectedTotal"),
@@ -442,6 +448,8 @@ def write_markdown_table(rows: List[Dict[str, Any]], path: Path, top_n: int = 50
         "stage",
         "status",
         "averagePacketLatency",
+        "packetLatencyP95",
+        "packetLatencyP99",
         "packetsReceivedPerSystemCycle",
         "packetDeliveryRatio",
         "sa2GrantRatio",
@@ -479,13 +487,14 @@ def draw_plots(rows: List[Dict[str, Any]], outdir: Path, fmt: str, use_tqdm: boo
     except Exception:  # noqa: BLE001
         return "matplotlib not available; skipped plot generation"
 
-    rows_ok = [
-        r
-        for r in rows
-        if r.get("status") in {"ok", "cached"}
-        and safe_num(r.get("injection_rate")) is not None
-        and safe_num(r.get("injection_rate")) > 0.0
-    ]
+    rows_ok = []
+    for r in rows:
+        if r.get("status") not in {"ok", "cached"}:
+            continue
+        rate = safe_num(r.get("injection_rate"))
+        if rate is None or rate <= 0.0:
+            continue
+        rows_ok.append(r)
     rows_ok.sort(key=lambda r: r["injection_rate"])
     if not rows_ok:
         return "no successful rows to plot"

@@ -31,7 +31,9 @@
 
 #include "mem/ruby/network/garnet/GarnetNetwork.hh"
 
+#include <algorithm>
 #include <cassert>
+#include <cmath>
 
 #include "base/cast.hh"
 #include "base/compiler.hh"
@@ -54,6 +56,26 @@ namespace ruby
 
 namespace garnet
 {
+
+namespace
+{
+
+Tick
+percentileNearestRank(const std::vector<Tick>& sorted_samples, double pct)
+{
+    assert(!sorted_samples.empty());
+    const double n = static_cast<double>(sorted_samples.size());
+    size_t rank = static_cast<size_t>(std::ceil((pct / 100.0) * n));
+    if (rank == 0) {
+        rank = 1;
+    }
+    if (rank > sorted_samples.size()) {
+        rank = sorted_samples.size();
+    }
+    return sorted_samples[rank - 1];
+}
+
+} // anonymous namespace
 
 /*
  * GarnetNetwork sets up the routers and links and collects stats.
@@ -382,6 +404,18 @@ GarnetNetwork::get_router_id(int global_ni, int vnet)
 }
 
 void
+GarnetNetwork::observe_packet_latency(Tick latency)
+{
+    m_packet_latency_samples_hist.push_back(latency);
+}
+
+void
+GarnetNetwork::observe_flit_latency(Tick latency)
+{
+    m_flit_latency_samples_hist.push_back(latency);
+}
+
+void
 GarnetNetwork::regStats()
 {
     Network::regStats();
@@ -447,6 +481,19 @@ GarnetNetwork::regStats()
     m_avg_packet_latency
         = m_avg_packet_network_latency + m_avg_packet_queueing_latency;
 
+    m_packet_latency_samples
+        .name(name() + ".packet_latency_samples");
+    m_packet_latency_min
+        .name(name() + ".packet_latency_min");
+    m_packet_latency_p50
+        .name(name() + ".packet_latency_p50");
+    m_packet_latency_p95
+        .name(name() + ".packet_latency_p95");
+    m_packet_latency_p99
+        .name(name() + ".packet_latency_p99");
+    m_packet_latency_max
+        .name(name() + ".packet_latency_max");
+
     // Flits
     m_flits_received
         .init(m_virtual_networks)
@@ -506,6 +553,19 @@ GarnetNetwork::regStats()
         .name(name() + ".average_flit_latency");
     m_avg_flit_latency =
         m_avg_flit_network_latency + m_avg_flit_queueing_latency;
+
+    m_flit_latency_samples
+        .name(name() + ".flit_latency_samples");
+    m_flit_latency_min
+        .name(name() + ".flit_latency_min");
+    m_flit_latency_p50
+        .name(name() + ".flit_latency_p50");
+    m_flit_latency_p95
+        .name(name() + ".flit_latency_p95");
+    m_flit_latency_p99
+        .name(name() + ".flit_latency_p99");
+    m_flit_latency_max
+        .name(name() + ".flit_latency_max");
 
 
     // Hops
@@ -576,6 +636,40 @@ GarnetNetwork::collateStats()
         }
     }
 
+    m_packet_latency_samples = m_packet_latency_samples_hist.size();
+    if (!m_packet_latency_samples_hist.empty()) {
+        std::vector<Tick> packet_sorted = m_packet_latency_samples_hist;
+        std::sort(packet_sorted.begin(), packet_sorted.end());
+        m_packet_latency_min = packet_sorted.front();
+        m_packet_latency_p50 = percentileNearestRank(packet_sorted, 50.0);
+        m_packet_latency_p95 = percentileNearestRank(packet_sorted, 95.0);
+        m_packet_latency_p99 = percentileNearestRank(packet_sorted, 99.0);
+        m_packet_latency_max = packet_sorted.back();
+    } else {
+        m_packet_latency_min = 0;
+        m_packet_latency_p50 = 0;
+        m_packet_latency_p95 = 0;
+        m_packet_latency_p99 = 0;
+        m_packet_latency_max = 0;
+    }
+
+    m_flit_latency_samples = m_flit_latency_samples_hist.size();
+    if (!m_flit_latency_samples_hist.empty()) {
+        std::vector<Tick> flit_sorted = m_flit_latency_samples_hist;
+        std::sort(flit_sorted.begin(), flit_sorted.end());
+        m_flit_latency_min = flit_sorted.front();
+        m_flit_latency_p50 = percentileNearestRank(flit_sorted, 50.0);
+        m_flit_latency_p95 = percentileNearestRank(flit_sorted, 95.0);
+        m_flit_latency_p99 = percentileNearestRank(flit_sorted, 99.0);
+        m_flit_latency_max = flit_sorted.back();
+    } else {
+        m_flit_latency_min = 0;
+        m_flit_latency_p50 = 0;
+        m_flit_latency_p95 = 0;
+        m_flit_latency_p99 = 0;
+        m_flit_latency_max = 0;
+    }
+
     // Ask the routers to collate their statistics
     for (int i = 0; i < m_routers.size(); i++) {
         m_routers[i]->collateStats();
@@ -585,6 +679,9 @@ GarnetNetwork::collateStats()
 void
 GarnetNetwork::resetStats()
 {
+    m_packet_latency_samples_hist.clear();
+    m_flit_latency_samples_hist.clear();
+
     for (int i = 0; i < m_routers.size(); i++) {
         m_routers[i]->resetStats();
     }

@@ -148,6 +148,9 @@ class GarnetNetwork : public Network
         m_flit_queueing_latency[vnet] += latency;
     }
 
+    void observe_packet_latency(Tick latency);
+    void observe_flit_latency(Tick latency);
+
     void
     increment_total_hops(int hops)
     {
@@ -179,6 +182,12 @@ class GarnetNetwork : public Network
     statistics::Formula m_avg_packet_network_latency;
     statistics::Formula m_avg_packet_queueing_latency;
     statistics::Formula m_avg_packet_latency;
+    statistics::Scalar m_packet_latency_samples;
+    statistics::Scalar m_packet_latency_min;
+    statistics::Scalar m_packet_latency_p50;
+    statistics::Scalar m_packet_latency_p95;
+    statistics::Scalar m_packet_latency_p99;
+    statistics::Scalar m_packet_latency_max;
 
     statistics::Vector m_flits_received;
     statistics::Vector m_flits_injected;
@@ -190,6 +199,12 @@ class GarnetNetwork : public Network
     statistics::Formula m_avg_flit_network_latency;
     statistics::Formula m_avg_flit_queueing_latency;
     statistics::Formula m_avg_flit_latency;
+    statistics::Scalar m_flit_latency_samples;
+    statistics::Scalar m_flit_latency_min;
+    statistics::Scalar m_flit_latency_p50;
+    statistics::Scalar m_flit_latency_p95;
+    statistics::Scalar m_flit_latency_p99;
+    statistics::Scalar m_flit_latency_max;
 
     statistics::Scalar m_total_ext_in_link_utilization;
     statistics::Scalar m_total_ext_out_link_utilization;
@@ -214,6 +229,8 @@ class GarnetNetwork : public Network
     std::vector<CreditLink *> m_creditlinks; // All credit links in the network
     std::vector<NetworkInterface *> m_nis;   // All NI's in Network
     int m_next_packet_id; // static vairable for packet id allocation
+    std::vector<Tick> m_packet_latency_samples_hist;
+    std::vector<Tick> m_flit_latency_samples_hist;
 };
 
 inline std::ostream&
