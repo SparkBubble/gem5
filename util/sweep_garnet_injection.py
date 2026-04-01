@@ -61,6 +61,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--mesh-rows", type=int, default=2)
     parser.add_argument("--sim-cycles", type=int, default=10_000_000)
     parser.add_argument("--synthetic", default="uniform_random")
+    parser.add_argument(
+        "--sa2-policy",
+        default=None,
+        choices=["rr", "age-based-rr"],
+        help="Optional SA-II arbitration policy forwarded to garnet_synth_traffic.py",
+    )
 
     parser.add_argument("--min-rate", type=float, default=0.0)
     parser.add_argument("--max-rate", type=float, default=1.0)
@@ -258,6 +264,9 @@ def run_one_rate(
         f"--synthetic={args.synthetic}",
         f"--injectionrate={rate:.6f}",
     ]
+
+    if args.sa2_policy is not None:
+        gem5_cmd.append(f"--sa2-policy={args.sa2_policy}")
 
     for ext in args.extra_gem5_arg:
         gem5_cmd.append(ext)

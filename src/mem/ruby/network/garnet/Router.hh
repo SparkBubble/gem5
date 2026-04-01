@@ -112,6 +112,7 @@ class Router : public BasicRouter, public Consumer
     }
 
     int getBitWidth() { return m_bit_width; }
+    bool use_age_based_sa2_arbitration() const { return m_use_age_based_sa2; }
 
     PortDirection getOutportDirection(int outport);
     PortDirection getInportDirection(int inport);
@@ -146,6 +147,7 @@ class Router : public BasicRouter, public Consumer
     Cycles m_latency;
     uint32_t m_virtual_networks, m_vc_per_vnet, m_num_vcs;
     uint32_t m_bit_width;
+    bool m_use_age_based_sa2;
     GarnetNetwork *m_network_ptr;
 
     RoutingUnit routingUnit;

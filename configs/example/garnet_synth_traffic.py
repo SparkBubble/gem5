@@ -120,6 +120,13 @@ parser.add_argument(
                         Set to -1 to inject randomly in all vnets.",
 )
 
+parser.add_argument(
+    "--sa2-policy",
+    default="rr",
+    choices=["rr", "age-based-rr"],
+    help="SA-II switch arbitration policy: rr or age-based-rr",
+)
+
 #
 # Add the ruby specific and protocol specific options
 #
@@ -154,6 +161,10 @@ system.clk_domain = SrcClockDomain(
 )
 
 Ruby.create_system(args, False, system)
+
+sa2_policy = "age_rr" if args.sa2_policy == "age-based-rr" else "rr"
+for router in system.ruby.network.routers:
+    router.sa2_policy = sa2_policy
 
 # Create a seperate clock domain for Ruby
 system.ruby.clk_domain = SrcClockDomain(

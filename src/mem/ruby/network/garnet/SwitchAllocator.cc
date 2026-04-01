@@ -198,8 +198,27 @@ SwitchAllocator::arbitrate_outports()
             m_sa2_inport_requests[contender]++;
         }
 
-        // RR winner is the first contender in rr_start order.
+        // Default RR winner is the first contender in rr_start order.
+        // Optionally override with age-priority (older enqueue_time wins),
+        // while preserving RR tie-break via contender traversal order.
         int inport = contenders.front();
+        if (m_router->use_age_based_sa2_arbitration()) {
+            bool have_best = false;
+            Tick best_enqueue_time = 0;
+            for (auto contender : contenders) {
+                int contender_invc = m_vc_winners[contender];
+                assert(contender_invc >= 0);
+                auto contender_input = m_router->getInputUnit(contender);
+                Tick contender_enqueue_time =
+                    contender_input->get_enqueue_time(contender_invc);
+
+                if (!have_best || contender_enqueue_time < best_enqueue_time) {
+                    inport = contender;
+                    best_enqueue_time = contender_enqueue_time;
+                    have_best = true;
+                }
+            }
+        }
         auto output_unit = m_router->getOutputUnit(outport);
         auto input_unit = m_router->getInputUnit(inport);
 
@@ -251,9 +270,12 @@ SwitchAllocator::arbitrate_outports()
         m_sa2_total_grants++;
         m_sa2_inport_grants[inport]++;
         if (contenders.size() > 1) {
-            m_sa2_total_denials += (contenders.size() - 1);
-            for (size_t idx = 1; idx < contenders.size(); idx++) {
-                m_sa2_inport_denials[contenders[idx]]++;
+            for (auto contender : contenders) {
+                if (contender == inport) {
+                    continue;
+                }
+                m_sa2_total_denials++;
+                m_sa2_inport_denials[contender]++;
             }
         }
 

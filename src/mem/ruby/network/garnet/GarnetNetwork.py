@@ -84,6 +84,10 @@ class GarnetRouter(BasicRouter):
     width = Param.UInt32(
         Parent.ni_flit_size, "bit width supported by the router"
     )
+    sa2_policy = Param.String(
+        "rr",
+        "SA-II arbitration policy: rr or age_rr (age-priority with RR tie-break)",
+    )
 
 
 add_citation(

@@ -11,10 +11,11 @@
     --topology Mesh_XY \
     --mesh-rows 4 \
     --sim-cycles 10000000 \
-    --synthetic uniform_random \
+    --synthetic transpose \
     --min-rate 0 \
     --max-rate 1 \
     --coarse-step 0.01 \
     --max-fine-intervals 0 \
-    --workdir m5out/sweep_RR_0p01_uniform \
+    --workdir m5out/sweep_AGEBASEDRR_0p01_transpose \
+    --sa2-policy age-based-rr \
     --force-rerun
