@@ -64,8 +64,32 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--sa2-policy",
         default=None,
-        choices=["rr", "age-based-rr"],
+        choices=["rr", "age-based-rr", "hybrid-rr-age"],
         help="Optional SA-II arbitration policy forwarded to garnet_synth_traffic.py",
+    )
+    parser.add_argument(
+        "--sa2-hybrid-low-threshold",
+        type=float,
+        default=None,
+        help="Optional low threshold forwarded to garnet_synth_traffic.py",
+    )
+    parser.add_argument(
+        "--sa2-hybrid-high-threshold",
+        type=float,
+        default=None,
+        help="Optional high threshold forwarded to garnet_synth_traffic.py",
+    )
+    parser.add_argument(
+        "--sa2-hybrid-ema-alpha",
+        type=float,
+        default=None,
+        help="Optional EMA alpha forwarded to garnet_synth_traffic.py",
+    )
+    parser.add_argument(
+        "--sa2-hybrid-min-hold-cycles",
+        type=int,
+        default=None,
+        help="Optional min hold cycles forwarded to garnet_synth_traffic.py",
     )
 
     parser.add_argument("--min-rate", type=float, default=0.0)
@@ -267,6 +291,20 @@ def run_one_rate(
 
     if args.sa2_policy is not None:
         gem5_cmd.append(f"--sa2-policy={args.sa2_policy}")
+    if args.sa2_hybrid_low_threshold is not None:
+        gem5_cmd.append(
+            f"--sa2-hybrid-low-threshold={args.sa2_hybrid_low_threshold}"
+        )
+    if args.sa2_hybrid_high_threshold is not None:
+        gem5_cmd.append(
+            f"--sa2-hybrid-high-threshold={args.sa2_hybrid_high_threshold}"
+        )
+    if args.sa2_hybrid_ema_alpha is not None:
+        gem5_cmd.append(f"--sa2-hybrid-ema-alpha={args.sa2_hybrid_ema_alpha}")
+    if args.sa2_hybrid_min_hold_cycles is not None:
+        gem5_cmd.append(
+            f"--sa2-hybrid-min-hold-cycles={args.sa2_hybrid_min_hold_cycles}"
+        )
 
     for ext in args.extra_gem5_arg:
         gem5_cmd.append(ext)

@@ -86,7 +86,23 @@ class GarnetRouter(BasicRouter):
     )
     sa2_policy = Param.String(
         "rr",
-        "SA-II arbitration policy: rr or age_rr (age-priority with RR tie-break)",
+        "SA-II arbitration policy: rr, age_rr, or hybrid_rr_age",
+    )
+    sa2_hybrid_low_threshold = Param.Float(
+        1.2,
+        "Hybrid SA-II: switch age->rr when per-outport contention EMA <= this",
+    )
+    sa2_hybrid_high_threshold = Param.Float(
+        1.8,
+        "Hybrid SA-II: switch rr->age when per-outport contention EMA >= this",
+    )
+    sa2_hybrid_ema_alpha = Param.Float(
+        0.2,
+        "Hybrid SA-II: EMA alpha for per-outport contention in [0, 1]",
+    )
+    sa2_hybrid_min_hold_cycles = Param.UInt32(
+        64,
+        "Hybrid SA-II: minimum cycles between policy switches per outport",
     )
 
 

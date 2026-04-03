@@ -123,8 +123,36 @@ parser.add_argument(
 parser.add_argument(
     "--sa2-policy",
     default="rr",
-    choices=["rr", "age-based-rr"],
-    help="SA-II switch arbitration policy: rr or age-based-rr",
+    choices=["rr", "age-based-rr", "hybrid-rr-age"],
+    help="SA-II switch arbitration policy: rr, age-based-rr, or hybrid-rr-age",
+)
+
+parser.add_argument(
+    "--sa2-hybrid-low-threshold",
+    type=float,
+    default=1.2,
+    help="Hybrid SA-II: switch age->rr when contention EMA <= low threshold",
+)
+
+parser.add_argument(
+    "--sa2-hybrid-high-threshold",
+    type=float,
+    default=1.8,
+    help="Hybrid SA-II: switch rr->age when contention EMA >= high threshold",
+)
+
+parser.add_argument(
+    "--sa2-hybrid-ema-alpha",
+    type=float,
+    default=0.2,
+    help="Hybrid SA-II: EMA alpha for contention smoothing (0..1)",
+)
+
+parser.add_argument(
+    "--sa2-hybrid-min-hold-cycles",
+    type=int,
+    default=64,
+    help="Hybrid SA-II: minimum cycles between policy switches per outport",
 )
 
 #
@@ -162,9 +190,19 @@ system.clk_domain = SrcClockDomain(
 
 Ruby.create_system(args, False, system)
 
-sa2_policy = "age_rr" if args.sa2_policy == "age-based-rr" else "rr"
+if args.sa2_policy == "age-based-rr":
+    sa2_policy = "age_rr"
+elif args.sa2_policy == "hybrid-rr-age":
+    sa2_policy = "hybrid_rr_age"
+else:
+    sa2_policy = "rr"
+
 for router in system.ruby.network.routers:
     router.sa2_policy = sa2_policy
+    router.sa2_hybrid_low_threshold = args.sa2_hybrid_low_threshold
+    router.sa2_hybrid_high_threshold = args.sa2_hybrid_high_threshold
+    router.sa2_hybrid_ema_alpha = args.sa2_hybrid_ema_alpha
+    router.sa2_hybrid_min_hold_cycles = args.sa2_hybrid_min_hold_cycles
 
 # Create a seperate clock domain for Ruby
 system.ruby.clk_domain = SrcClockDomain(

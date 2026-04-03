@@ -128,6 +128,9 @@ class SwitchAllocator : public Consumer
     std::vector<double> m_sa2_inport_requests;
     std::vector<double> m_sa2_inport_grants;
     std::vector<double> m_sa2_inport_denials;
+    std::vector<double> m_sa2_hybrid_contention_ema;
+    std::vector<bool> m_sa2_hybrid_use_age_mode;
+    std::vector<Tick> m_sa2_hybrid_last_switch_tick;
 
     Router *m_router;
     std::vector<int> m_round_robin_invc;

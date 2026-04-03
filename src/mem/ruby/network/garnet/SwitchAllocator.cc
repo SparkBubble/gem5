@@ -72,6 +72,9 @@ SwitchAllocator::init()
     m_sa2_inport_requests.resize(m_num_inports);
     m_sa2_inport_grants.resize(m_num_inports);
     m_sa2_inport_denials.resize(m_num_inports);
+    m_sa2_hybrid_contention_ema.resize(m_num_outports);
+    m_sa2_hybrid_use_age_mode.resize(m_num_outports);
+    m_sa2_hybrid_last_switch_tick.resize(m_num_outports);
 
     for (int i = 0; i < m_num_inports; i++) {
         m_round_robin_invc[i] = 0;
@@ -84,6 +87,9 @@ SwitchAllocator::init()
 
     for (int i = 0; i < m_num_outports; i++) {
         m_round_robin_inport[i] = 0;
+        m_sa2_hybrid_contention_ema[i] = 0.0;
+        m_sa2_hybrid_use_age_mode[i] = false;
+        m_sa2_hybrid_last_switch_tick[i] = 0;
     }
 }
 
@@ -189,6 +195,36 @@ SwitchAllocator::arbitrate_outports()
             }
         }
 
+        bool use_age_based = m_router->use_age_based_sa2_arbitration();
+        if (m_router->use_hybrid_sa2_arbitration()) {
+            const double alpha = m_router->get_sa2_hybrid_ema_alpha();
+            const double current_load = static_cast<double>(contenders.size());
+            double &ema = m_sa2_hybrid_contention_ema[outport];
+            ema = (alpha * current_load) + ((1.0 - alpha) * ema);
+
+            bool next_use_age = m_sa2_hybrid_use_age_mode[outport];
+            if (!next_use_age && ema >= m_router->get_sa2_hybrid_high_threshold()) {
+                next_use_age = true;
+            } else if (next_use_age &&
+                       ema <= m_router->get_sa2_hybrid_low_threshold()) {
+                next_use_age = false;
+            }
+
+            if (next_use_age != m_sa2_hybrid_use_age_mode[outport]) {
+                const Tick hold_ticks = m_router->clockPeriod() *
+                    m_router->get_sa2_hybrid_min_hold_cycles();
+                const Tick last_switch = m_sa2_hybrid_last_switch_tick[outport];
+                const bool hold_ok = (last_switch == 0) ||
+                    (curTick() - last_switch >= hold_ticks);
+                if (hold_ok) {
+                    m_sa2_hybrid_use_age_mode[outport] = next_use_age;
+                    m_sa2_hybrid_last_switch_tick[outport] = curTick();
+                }
+            }
+
+            use_age_based = m_sa2_hybrid_use_age_mode[outport];
+        }
+
         if (contenders.empty()) {
             continue;
         }
@@ -202,7 +238,7 @@ SwitchAllocator::arbitrate_outports()
         // Optionally override with age-priority (older enqueue_time wins),
         // while preserving RR tie-break via contender traversal order.
         int inport = contenders.front();
-        if (m_router->use_age_based_sa2_arbitration()) {
+        if (use_age_based) {
             bool have_best = false;
             Tick best_enqueue_time = 0;
             for (auto contender : contenders) {

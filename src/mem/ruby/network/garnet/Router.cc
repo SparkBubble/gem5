@@ -54,13 +54,29 @@ Router::Router(const Params &p)
     m_virtual_networks(p.virt_nets), m_vc_per_vnet(p.vcs_per_vnet),
     m_num_vcs(m_virtual_networks * m_vc_per_vnet), m_bit_width(p.width),
     m_use_age_based_sa2(false),
+    m_use_hybrid_sa2(false),
+    m_sa2_hybrid_low_threshold(p.sa2_hybrid_low_threshold),
+    m_sa2_hybrid_high_threshold(p.sa2_hybrid_high_threshold),
+    m_sa2_hybrid_ema_alpha(p.sa2_hybrid_ema_alpha),
+    m_sa2_hybrid_min_hold_cycles(p.sa2_hybrid_min_hold_cycles),
     m_network_ptr(nullptr), routingUnit(this), switchAllocator(this),
     crossbarSwitch(this)
 {
-    fatal_if(p.sa2_policy != "rr" && p.sa2_policy != "age_rr",
-             "Invalid sa2_policy '%s' for router %s. Supported values: rr, age_rr",
+    fatal_if(p.sa2_policy != "rr" && p.sa2_policy != "age_rr" &&
+                 p.sa2_policy != "hybrid_rr_age",
+             "Invalid sa2_policy '%s' for router %s. "
+             "Supported values: rr, age_rr, hybrid_rr_age",
              p.sa2_policy, name());
     m_use_age_based_sa2 = (p.sa2_policy == "age_rr");
+    m_use_hybrid_sa2 = (p.sa2_policy == "hybrid_rr_age");
+
+    fatal_if(m_sa2_hybrid_low_threshold > m_sa2_hybrid_high_threshold,
+             "Router %s: sa2_hybrid_low_threshold (%f) must be <= "
+             "sa2_hybrid_high_threshold (%f)",
+             name(), m_sa2_hybrid_low_threshold, m_sa2_hybrid_high_threshold);
+    fatal_if(m_sa2_hybrid_ema_alpha < 0.0 || m_sa2_hybrid_ema_alpha > 1.0,
+             "Router %s: sa2_hybrid_ema_alpha (%f) must be in [0, 1]",
+             name(), m_sa2_hybrid_ema_alpha);
 
     m_input_unit.clear();
     m_output_unit.clear();

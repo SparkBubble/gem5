@@ -113,6 +113,23 @@ class Router : public BasicRouter, public Consumer
 
     int getBitWidth() { return m_bit_width; }
     bool use_age_based_sa2_arbitration() const { return m_use_age_based_sa2; }
+    bool use_hybrid_sa2_arbitration() const { return m_use_hybrid_sa2; }
+    double get_sa2_hybrid_low_threshold() const
+    {
+      return m_sa2_hybrid_low_threshold;
+    }
+    double get_sa2_hybrid_high_threshold() const
+    {
+      return m_sa2_hybrid_high_threshold;
+    }
+    double get_sa2_hybrid_ema_alpha() const
+    {
+      return m_sa2_hybrid_ema_alpha;
+    }
+    uint32_t get_sa2_hybrid_min_hold_cycles() const
+    {
+      return m_sa2_hybrid_min_hold_cycles;
+    }
 
     PortDirection getOutportDirection(int outport);
     PortDirection getInportDirection(int inport);
@@ -148,6 +165,11 @@ class Router : public BasicRouter, public Consumer
     uint32_t m_virtual_networks, m_vc_per_vnet, m_num_vcs;
     uint32_t m_bit_width;
     bool m_use_age_based_sa2;
+    bool m_use_hybrid_sa2;
+    double m_sa2_hybrid_low_threshold;
+    double m_sa2_hybrid_high_threshold;
+    double m_sa2_hybrid_ema_alpha;
+    uint32_t m_sa2_hybrid_min_hold_cycles;
     GarnetNetwork *m_network_ptr;
 
     RoutingUnit routingUnit;
