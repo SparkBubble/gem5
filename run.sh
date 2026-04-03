@@ -2,10 +2,10 @@
 
 scons build/NULL/gem5.opt -j8
 
-/usr/bin/python3 util/sweep_garnet_injection.py \
+/usr/bin/python3 myutil/sweep_garnet_injection.py \
     --gem5-bin ./build/NULL/gem5.opt \
     --config configs/example/garnet_synth_traffic.py \
-    --extractor util/extract_garnet_stats.py \
+    --extractor myutil/extract_garnet_stats.py \
     --num-cpus 16 \
     --num-dirs 16 \
     --network garnet \
@@ -21,10 +21,10 @@ scons build/NULL/gem5.opt -j8
     --sa2-policy hybrid-rr-age \
     --force-rerun
 
-/usr/bin/python3 util/sweep_garnet_injection.py \
+/usr/bin/python3 myutil/sweep_garnet_injection.py \
     --gem5-bin ./build/NULL/gem5.opt \
     --config configs/example/garnet_synth_traffic.py \
-    --extractor util/extract_garnet_stats.py \
+    --extractor myutil/extract_garnet_stats.py \
     --num-cpus 16 \
     --num-dirs 16 \
     --network garnet \
@@ -40,10 +40,10 @@ scons build/NULL/gem5.opt -j8
     --sa2-policy hybrid-rr-age \
     --force-rerun
 
-/usr/bin/python3 util/sweep_garnet_injection.py \
+/usr/bin/python3 myutil/sweep_garnet_injection.py \
     --gem5-bin ./build/NULL/gem5.opt \
     --config configs/example/garnet_synth_traffic.py \
-    --extractor util/extract_garnet_stats.py \
+    --extractor myutil/extract_garnet_stats.py \
     --num-cpus 16 \
     --num-dirs 16 \
     --network garnet \
